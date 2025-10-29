@@ -74,39 +74,46 @@ alter table public.organizations enable row level security;
 alter table public.user_profiles enable row level security;
 alter table public.organization_members enable row level security;
 
-create policy if not exists p_orgs_rw on public.organizations
+drop policy if exists p_orgs_rw on public.organizations;
+create policy p_orgs_rw on public.organizations
   for all to authenticated
   using (id in (select org_id from public.organization_members where user_id = auth.uid()))
   with check (true);
 
-create policy if not exists p_profiles_self on public.user_profiles
+drop policy if exists p_profiles_self on public.user_profiles;
+create policy p_profiles_self on public.user_profiles
   for all to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
-create policy if not exists p_members_rw on public.organization_members
+drop policy if exists p_members_rw on public.organization_members;
+create policy p_members_rw on public.organization_members
   for all to authenticated
   using (org_id in (select org_id from public.organization_members where user_id = auth.uid()))
   with check (org_id in (select org_id from public.organization_members where user_id = auth.uid()));
 
 -- Business tables RLS based on org_id membership
-create policy if not exists p_cari_org_rw on public.cari_accounts
+drop policy if exists p_cari_org_rw on public.cari_accounts;
+create policy p_cari_org_rw on public.cari_accounts
   for all to authenticated
   using (org_id is not null and org_id in (select org_id from public.v_current_user_orgs))
   with check (org_id is not null and org_id in (select org_id from public.v_current_user_orgs));
 
-create policy if not exists p_items_org_rw on public.items
+drop policy if exists p_items_org_rw on public.items;
+create policy p_items_org_rw on public.items
   for all to authenticated
   using (org_id is not null and org_id in (select org_id from public.v_current_user_orgs))
   with check (org_id is not null and org_id in (select org_id from public.v_current_user_orgs));
 
-create policy if not exists p_invoices_org_rw on public.invoices
+drop policy if exists p_invoices_org_rw on public.invoices;
+create policy p_invoices_org_rw on public.invoices
   for all to authenticated
   using (org_id is not null and org_id in (select org_id from public.v_current_user_orgs))
   with check (org_id is not null and org_id in (select org_id from public.v_current_user_orgs));
 
 -- invoice_lines policy via parent invoice org
-create policy if not exists p_invoice_lines_org_rw on public.invoice_lines
+drop policy if exists p_invoice_lines_org_rw on public.invoice_lines;
+create policy p_invoice_lines_org_rw on public.invoice_lines
   for all to authenticated
   using (exists (
     select 1 from public.invoices inv
@@ -121,22 +128,26 @@ create policy if not exists p_invoice_lines_org_rw on public.invoice_lines
       and inv.org_id in (select org_id from public.v_current_user_orgs)
   ));
 
-create policy if not exists p_cash_org_rw on public.cash_transactions
+drop policy if exists p_cash_org_rw on public.cash_transactions;
+create policy p_cash_org_rw on public.cash_transactions
   for all to authenticated
   using (org_id is not null and org_id in (select org_id from public.v_current_user_orgs))
   with check (org_id is not null and org_id in (select org_id from public.v_current_user_orgs));
 
-create policy if not exists p_bank_accounts_org_rw on public.bank_accounts
+drop policy if exists p_bank_accounts_org_rw on public.bank_accounts;
+create policy p_bank_accounts_org_rw on public.bank_accounts
   for all to authenticated
   using (org_id is not null and org_id in (select org_id from public.v_current_user_orgs))
   with check (org_id is not null and org_id in (select org_id from public.v_current_user_orgs));
 
-create policy if not exists p_bank_tx_org_rw on public.bank_transactions
+drop policy if exists p_bank_tx_org_rw on public.bank_transactions;
+create policy p_bank_tx_org_rw on public.bank_transactions
   for all to authenticated
   using (org_id is not null and org_id in (select org_id from public.v_current_user_orgs))
   with check (org_id is not null and org_id in (select org_id from public.v_current_user_orgs));
 
-create policy if not exists p_pos_org_rw on public.pos_blocks
+drop policy if exists p_pos_org_rw on public.pos_blocks;
+create policy p_pos_org_rw on public.pos_blocks
   for all to authenticated
   using (org_id is not null and org_id in (select org_id from public.v_current_user_orgs))
   with check (org_id is not null and org_id in (select org_id from public.v_current_user_orgs));
