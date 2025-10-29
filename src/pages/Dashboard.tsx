@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [cash, setCash] = useState<CashTransaction[]>([]);
   const [pos, setPos] = useState<PosBlock[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [orgName, setOrgName] = useState<string>('');
 
   useEffect(() => {
     let cancelled = false;
@@ -18,15 +19,18 @@ export default function Dashboard() {
       if (!cancelled) setAuthed(Boolean(data.session));
       if (data.session) {
         try {
-          const [cashRes, posRes, invRes] = await Promise.all([
+          const [cashRes, posRes, invRes, orgRes] = await Promise.all([
             listCashTransactions(),
             listPosBlocks(),
             listInvoices(),
+            supabase.from('organization_members').select('organizations(name)').limit(1),
           ]);
           if (!cancelled) {
             if (!cashRes.error) setCash(cashRes.data ?? []);
             if (!posRes.error) setPos(posRes.data ?? []);
             if (!invRes.error) setInvoices(invRes.data ?? []);
+            const n = (orgRes.data as any)?.[0]?.organizations?.name;
+            if (n) setOrgName(n as string);
           }
         } finally {
           if (!cancelled) setLoading(false);
@@ -52,7 +56,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Dashboard</h2>
+      <h2 style={{ marginTop: 0 }}>{orgName ? orgName : 'Dashboard'}</h2>
       {!authed && (
         <div className="card" style={{ marginBottom: 12, background: '#fff8e1' }}>
           Supabase RLS nedeniyle metrikleri görmek için giriş gereklidir.
