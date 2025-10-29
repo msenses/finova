@@ -19,18 +19,28 @@ export default function Dashboard() {
       if (!cancelled) setAuthed(Boolean(data.session));
       if (data.session) {
         try {
-          const [cashRes, posRes, invRes, orgRes] = await Promise.all([
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          const [cashRes, posRes, invRes] = await Promise.all([
             listCashTransactions(),
             listPosBlocks(),
             listInvoices(),
-            supabase.from('organization_members').select('organizations(name)').limit(1),
           ]);
+          let fetchedOrgName = '';
+          if (user?.id) {
+            const { data: orgData } = await supabase
+              .from('organization_members')
+              .select('organizations(name)')
+              .eq('user_id', user.id)
+              .limit(1);
+            fetchedOrgName = (orgData as any)?.[0]?.organizations?.name ?? '';
+          }
           if (!cancelled) {
             if (!cashRes.error) setCash(cashRes.data ?? []);
             if (!posRes.error) setPos(posRes.data ?? []);
             if (!invRes.error) setInvoices(invRes.data ?? []);
-            const n = (orgRes.data as any)?.[0]?.organizations?.name;
-            if (n) setOrgName(n as string);
+            if (fetchedOrgName) setOrgName(fetchedOrgName);
           }
         } finally {
           if (!cancelled) setLoading(false);
@@ -56,7 +66,10 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>{orgName ? orgName : 'Dashboard'}</h2>
+      <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>
+        Firma: <strong>{orgName || '-'}</strong>
+      </div>
+      <h2 style={{ marginTop: 0 }}>Dashboard</h2>
       {!authed && (
         <div className="card" style={{ marginBottom: 12, background: '#fff8e1' }}>
           Supabase RLS nedeniyle metrikleri görmek için giriş gereklidir.
