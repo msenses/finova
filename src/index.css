@@ -67,3 +67,7 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+.app-shell { background: linear-gradient(135deg, #f3f7ff 0%, #edf4ff 35%, #f7fbff 100%); }
+.sidebar .nav a { display: block; }
+.sidebar .nav a + a { margin-top: 4px; }
