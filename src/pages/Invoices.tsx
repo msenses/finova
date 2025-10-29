@@ -4,8 +4,11 @@ import { listInvoices, createInvoice, type Invoice } from '../services/invoices'
 import { listItems, type Item } from '../services/items';
 import { listCariAccounts, type CariAccount } from '../services/cari';
 import { createCashTransaction } from '../services/cash';
+import { listBankAccounts, type BankAccount } from '../services/bank';
+import { createBankTransaction } from '../services/bankTx';
+import { createPosBlock } from '../services/pos';
 
-type PayMethod = 'NAKIT' | 'VADE';
+type PayMethod = 'NAKIT' | 'IBAN' | 'POS' | 'VADE';
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -22,6 +25,10 @@ export default function Invoices() {
   const [vatRate, setVatRate] = useState<number>(20);
   const [payMethod, setPayMethod] = useState<PayMethod>('NAKIT');
   const [showAdd, setShowAdd] = useState<boolean>(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [bankAccountId, setBankAccountId] = useState('');
+  const [posBankAccountId, setPosBankAccountId] = useState('');
+  const [dueDate, setDueDate] = useState<string>('');
 
   const net = useMemo(() => Number((qty * unitPrice).toFixed(2)), [qty, unitPrice]);
   const vat = useMemo(() => Number(((net * vatRate) / 100).toFixed(2)), [net, vatRate]);
@@ -35,7 +42,7 @@ export default function Invoices() {
       const { data } = await supabase.auth.getSession();
       if (!cancelled) setAuthed(Boolean(data.session));
       if (data.session) {
-        await Promise.all([loadInvoices(), loadLists()]);
+        await Promise.all([loadInvoices(), loadLists(), loadBanks()]);
       }
     };
     void init();
@@ -56,6 +63,11 @@ export default function Invoices() {
     if (!carisRes.error) setCaris(carisRes.data ?? []);
   }
 
+  async function loadBanks() {
+    const res = await listBankAccounts('');
+    if (!res.error) setBankAccounts(res.data ?? []);
+  }
+
   useEffect(() => {
     // Ürün seçilince varsayılan fiyat ve KDV uygula
     const it = items.find((i) => i.id === itemId);
@@ -65,7 +77,13 @@ export default function Invoices() {
     }
   }, [itemId, items]);
 
-  const isValid = useMemo(() => Boolean(cariId && itemId && qty > 0 && unitPrice >= 0), [cariId, itemId, qty, unitPrice]);
+  const isValid = useMemo(() => {
+    if (!cariId || !itemId || qty <= 0 || unitPrice < 0) return false;
+    if (payMethod === 'IBAN' && !bankAccountId) return false;
+    if (payMethod === 'POS' && !posBankAccountId) return false;
+    if (payMethod === 'VADE' && !dueDate) return false;
+    return true;
+  }, [cariId, itemId, qty, unitPrice, payMethod, bankAccountId, posBankAccountId, dueDate]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,7 +96,7 @@ export default function Invoices() {
         type: derivedType,
         cari_id: cariId,
         invoice_date: today,
-        due_date: today,
+        due_date: payMethod === 'VADE' ? (dueDate || today) : today,
         currency: 'TRY',
         net_total: net,
         vat_total: vat,
@@ -97,10 +115,20 @@ export default function Invoices() {
       if (payMethod === 'NAKIT') {
         const ctType = derivedType === 'alis' ? 'odeme' : 'tahsilat';
         await createCashTransaction({ type: ctType as any, cari_id: cariId, amount: gross, description: `${derivedType === 'alis' ? 'Fatura ödemesi' : 'Fatura tahsilatı'} ${data.id}` });
+        await supabase.from('invoices').update({ status: 'posted' }).eq('id', data.id);
+      } else if (payMethod === 'IBAN') {
+        const bType = derivedType === 'alis' ? 'cikis' : 'giris';
+        await createBankTransaction({ bank_account_id: bankAccountId, type: bType as any, amount: gross, description: `Fatura ${derivedType === 'alis' ? 'ödemesi' : 'tahsilatı'} ${data.id}`, cari_id: cariId });
+        await supabase.from('invoices').update({ status: 'posted' }).eq('id', data.id);
+      } else if (payMethod === 'POS') {
+        await createPosBlock({ bank_account_id: posBankAccountId, reference: `Fatura ${data.id}`, gross_amount: gross, fee_amount: 0, status: 'blocked' });
+        await supabase.from('invoices').update({ status: 'posted' }).eq('id', data.id);
+      } else if (payMethod === 'VADE') {
+        await supabase.from('invoices').update({ status: 'draft' }).eq('id', data.id);
       }
 
       await loadInvoices();
-      setCariId(''); setItemId(''); setQty(1); setUnitPrice(0); setVatRate(20); setPayMethod('NAKIT'); setShowAdd(false);
+      setCariId(''); setItemId(''); setQty(1); setUnitPrice(0); setVatRate(20); setPayMethod('NAKIT'); setBankAccountId(''); setPosBankAccountId(''); setDueDate(''); setShowAdd(false);
     } catch (e: any) {
       setMessage(e?.message ?? 'Fatura oluşturulamadı');
     } finally {
@@ -163,9 +191,42 @@ export default function Invoices() {
             <div style={{ fontSize: 12, marginBottom: 4 }}>Ödeme</div>
             <select className="form-control" value={payMethod} onChange={(e) => setPayMethod(e.target.value as PayMethod)}>
               <option value="NAKIT">Nakit</option>
+              <option value="IBAN">IBAN</option>
+              <option value="POS">POS</option>
               <option value="VADE">Vade</option>
             </select>
           </div>
+
+          {payMethod === 'IBAN' && (
+            <div>
+              <div style={{ fontSize: 12, marginBottom: 4 }}>Banka Hesabı</div>
+              <select className="form-control" value={bankAccountId} onChange={(e) => setBankAccountId(e.target.value)}>
+                <option value="">Seçiniz</option>
+                {bankAccounts.map(b => (
+                  <option key={b.id} value={b.id}>{b.name} {b.iban ? `- ${b.iban}` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {payMethod === 'POS' && (
+            <div>
+              <div style={{ fontSize: 12, marginBottom: 4 }}>POS Banka Hesabı</div>
+              <select className="form-control" value={posBankAccountId} onChange={(e) => setPosBankAccountId(e.target.value)}>
+                <option value="">Seçiniz</option>
+                {bankAccounts.map(b => (
+                  <option key={b.id} value={b.id}>{b.name} {b.iban ? `- ${b.iban}` : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {payMethod === 'VADE' && (
+            <div>
+              <div style={{ fontSize: 12, marginBottom: 4 }}>Vade Tarihi</div>
+              <input className="form-control" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          )}
 
           <div className="md-col-span-2">
             <div style={{ fontSize: 12, marginBottom: 4 }}>Tutarlar</div>

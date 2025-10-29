@@ -25,6 +25,7 @@ export async function createPosBlock(payload: Partial<PosBlock>) {
     reference: payload.reference ?? null,
     gross_amount: payload.gross_amount ?? 0,
     fee_amount: payload.fee_amount ?? 0,
+    net_amount: payload.net_amount ?? Math.max(0, (payload.gross_amount ?? 0) - (payload.fee_amount ?? 0)),
     block_release_date: payload.block_release_date ?? null,
     status: (payload.status ?? 'blocked') as PosStatus,
   };
