@@ -19,22 +19,21 @@ export default function Dashboard() {
       if (!cancelled) setAuthed(Boolean(data.session));
       if (data.session) {
         try {
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
+          const { data: userWrap } = await supabase.auth.getUser();
+          const user = userWrap.user;
           const [cashRes, posRes, invRes] = await Promise.all([
             listCashTransactions(),
             listPosBlocks(),
             listInvoices(),
           ]);
           let fetchedOrgName = '';
-          if (user?.id) {
-            const { data: orgData } = await supabase
-              .from('organization_members')
-              .select('organizations(name)')
-              .eq('user_id', user.id)
+          if (user?.email) {
+            const { data: rows } = await supabase
+              .from('user_profiles')
+              .select('organization_members(org_id, organizations(name))')
+              .eq('email', user.email)
               .limit(1);
-            fetchedOrgName = (orgData as any)?.[0]?.organizations?.name ?? '';
+            fetchedOrgName = (rows as any)?.[0]?.organization_members?.[0]?.organizations?.name ?? '';
           }
           if (!cancelled) {
             if (!cashRes.error) setCash(cashRes.data ?? []);
