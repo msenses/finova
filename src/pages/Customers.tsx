@@ -22,6 +22,7 @@ export default function Customers() {
   const [showAdd, setShowAdd] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [authed, setAuthed] = useState<boolean>(false);
+  const [dueInfo, setDueInfo] = useState<{ count: number; total: number; nearest?: string } | null>(null);
 
   const [form, setForm] = useState<FormState>({
     code: '',
@@ -98,6 +99,7 @@ export default function Customers() {
       phone: row.phone ?? '',
       address: row.address ?? ''
     });
+    void loadDueInfo(row.id);
   }
 
   async function onDelete(id: string) {
@@ -118,6 +120,23 @@ export default function Customers() {
   function onReset() {
     setEditingId(undefined);
     setForm({ code: '', title: '', type: '', tax_number: '', tax_office: '', email: '', phone: '', address: '' });
+    setDueInfo(null);
+  }
+
+  async function loadDueInfo(cariId: string) {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('id,due_date,gross_total,status')
+      .eq('status', 'draft')
+      .eq('cari_id', cariId);
+    if (error) return;
+    const count = (data as any)?.length ?? 0;
+    const total = ((data as any) ?? []).reduce((s: number, x: any) => s + (x.gross_total || 0), 0);
+    const nearest = ((data as any) ?? [])
+      .map((x: any) => x.due_date)
+      .filter(Boolean)
+      .sort()[0];
+    setDueInfo({ count, total, nearest });
   }
 
   return (
@@ -206,6 +225,14 @@ export default function Customers() {
             )}
           </div>
           </form>
+          {editingId && (
+            <div className="card" style={{ margin: 8 }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Vadeli Açık Faturalar</div>
+              <div className="text-muted" style={{ fontSize: 12 }}>
+                Adet: <b>{dueInfo?.count ?? 0}</b> • Toplam: <b>{(dueInfo?.total ?? 0).toFixed(2)} TL</b> {dueInfo?.nearest ? `• En yakın vade: ${dueInfo.nearest}` : ''}
+              </div>
+            </div>
+          )}
         </div>
         {message && <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>{message}</div>}
       </div>

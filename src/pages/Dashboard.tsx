@@ -11,6 +11,8 @@ export default function Dashboard() {
   const [pos, setPos] = useState<PosBlock[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [orgName, setOrgName] = useState<string>('');
+  const [dueSoon, setDueSoon] = useState<{ count: number; total: number }>({ count: 0, total: 0 });
+  const [dueToday, setDueToday] = useState<{ count: number; total: number }>({ count: 0, total: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +42,23 @@ export default function Dashboard() {
             if (!posRes.error) setPos(posRes.data ?? []);
             if (!invRes.error) setInvoices(invRes.data ?? []);
             if (fetchedOrgName) setOrgName(fetchedOrgName);
+            // vade raporu
+            const today = new Date();
+            const in7 = new Date(); in7.setDate(today.getDate() + 7);
+            const drafts = (invRes.data as any)?.filter((x: any) => x.status === 'draft') ?? [];
+            const toDate = (s: string) => (s ? new Date(s) : null);
+            const arrSoon = drafts.filter((x: any) => {
+              const d = toDate(x.due_date);
+              return d && d > today && d <= in7;
+            });
+            const arrToday = drafts.filter((x: any) => {
+              const d = toDate(x.due_date);
+              if (!d) return false;
+              const td = new Date(today.toISOString().slice(0,10));
+              return d.getTime() === td.getTime();
+            });
+            setDueSoon({ count: arrSoon.length, total: arrSoon.reduce((s: number, v: any) => s + (v.gross_total || 0), 0) });
+            setDueToday({ count: arrToday.length, total: arrToday.reduce((s: number, v: any) => s + (v.gross_total || 0), 0) });
           }
         } finally {
           if (!cancelled) setLoading(false);
@@ -89,6 +108,18 @@ export default function Dashboard() {
           <div style={{ fontSize: 12, opacity: 0.8 }}>Bugün Satış (Brüt)</div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{loading ? '...' : salesToday.toFixed(2)} TL</div>
           <div className="text-muted" style={{ fontSize: 12 }}>Bugünkü satış faturaları toplamı</div>
+        </div>
+      </div>
+      <div className="grid-3" style={{ marginTop: 12 }}>
+        <div className="card">
+          <div style={{ fontSize: 12, opacity: 0.8 }}>Vadesi 1 Hafta Kalan</div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>{dueSoon.count} adet</div>
+          <div className="text-muted" style={{ fontSize: 12 }}>Toplam: {dueSoon.total.toFixed(2)} TL</div>
+        </div>
+        <div className="card">
+          <div style={{ fontSize: 12, opacity: 0.8 }}>Bugün Vadesi Gelen</div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>{dueToday.count} adet</div>
+          <div className="text-muted" style={{ fontSize: 12 }}>Toplam: {dueToday.total.toFixed(2)} TL</div>
         </div>
       </div>
       <div className="card" style={{ marginTop: 16 }}>
