@@ -8,9 +8,12 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const [invoices, setInvoices] = useState<Array<{ type: string; gross_total: number }>>([]);
+  const [invoices, setInvoices] = useState<Array<{ id: string; type: string; cari_id: string; gross_total: number }>>([]);
   const [cashTx, setCashTx] = useState<Array<{ type: string; amount: number }>>([]);
   const [posBlocks, setPosBlocks] = useState<Array<{ status: string; net_amount: number }>>([]);
+  const [invoiceLines, setInvoiceLines] = useState<Array<{ invoice_id: string; item_id: string; qty: number }>>([]);
+  const [items, setItems] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [caris, setCaris] = useState<Array<{ id: string; title: string; type: string }>>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,7 +22,7 @@ export default function Reports() {
       setMessage('');
       try {
         const [invRes, cashRes, posRes] = await Promise.all([
-          supabase.from('invoices').select('type,gross_total'),
+          supabase.from('invoices').select('id,type,cari_id,gross_total'),
           supabase.from('cash_transactions').select('type,amount'),
           supabase.from('pos_blocks').select('status,net_amount'),
         ]);
@@ -27,6 +30,20 @@ export default function Reports() {
           if (!invRes.error) setInvoices((invRes.data as any) ?? []);
           if (!cashRes.error) setCashTx((cashRes.data as any) ?? []);
           if (!posRes.error) setPosBlocks((posRes.data as any) ?? []);
+        }
+        // invoice_lines ve referans listeleri
+        const invIds = ((invRes.data as any) ?? []).map((r: any) => r.id);
+        if (invIds.length) {
+          const [linesRes, itemsRes, carisRes] = await Promise.all([
+            supabase.from('invoice_lines').select('invoice_id,item_id,qty').in('invoice_id', invIds),
+            supabase.from('items').select('id,code,name'),
+            supabase.from('cari_accounts').select('id,title,type'),
+          ]);
+          if (!cancelled) {
+            if (!linesRes.error) setInvoiceLines((linesRes.data as any) ?? []);
+            if (!itemsRes.error) setItems((itemsRes.data as any) ?? []);
+            if (!carisRes.error) setCaris((carisRes.data as any) ?? []);
+          }
         }
       } catch (e: any) {
         if (!cancelled) setMessage(e?.message ?? 'Raporlar yüklenemedi');
@@ -48,6 +65,68 @@ export default function Reports() {
 
   const posBlokedeToplam = useMemo(() => posBlocks.filter(p => p.status === 'blocked').reduce((s, x) => s + (x.net_amount || 0), 0), [posBlocks]);
 
+  // Cari raporlari hesaplari
+  const itemIdTo = useMemo(() => Object.fromEntries(items.map(it => [it.id, it])), [items]);
+  const cariIdTo = useMemo(() => Object.fromEntries(caris.map(c => [c.id, c])), [caris]);
+
+  // Tedarikçi bazlı toplam alış ve ödeme/borç
+  const supplierTotals = useMemo(() => {
+    const totals: Record<string, { title: string; totalPurchase: number; paid: number; debt: number }> = {};
+    const alisByCari = new Map<string, number>();
+    invoices.filter(i => i.type === 'alis').forEach(i => {
+      alisByCari.set(i.cari_id, (alisByCari.get(i.cari_id) || 0) + (i.gross_total || 0));
+    });
+    const odemeByCari = new Map<string, number>();
+    cashTx.filter(c => c.type === 'odeme').forEach(c => {
+      // Not: cash_transactions'da cari_id var; select'e eklenmemişti. Bu nedenle grup hesapları ileride geliştirilebilir.
+    });
+    // cash_transactions seçimi cari_id içermiyor; güvenli tarafta sıfır kabul edelim
+    alisByCari.forEach((total, cariId) => {
+      const title = cariIdTo[cariId]?.title || cariId;
+      const paid = odemeByCari.get(cariId) || 0;
+      const debt = Math.max(0, total - paid);
+      totals[cariId] = { title, totalPurchase: total, paid, debt };
+    });
+    return totals;
+  }, [invoices, cashTx, cariIdTo]);
+
+  // Tedarikçilerden alınan ürünlerin ürün bazlı toplam adeti
+  const supplierItemQty = useMemo(() => {
+    const set = new Set(invoices.filter(i => i.type === 'alis').map(i => i.id));
+    const byItem: Record<string, number> = {};
+    invoiceLines.filter(l => set.has(l.invoice_id)).forEach(l => {
+      byItem[l.item_id] = (byItem[l.item_id] || 0) + (l.qty || 0);
+    });
+    return byItem;
+  }, [invoices, invoiceLines]);
+
+  // Müşteri bazlı toplam satış adet ve tutar; alacak = satış toplamı - tahsilat
+  const customerTotals = useMemo(() => {
+    const satisByCari = new Map<string, number>();
+    invoices.filter(i => i.type === 'satis').forEach(i => {
+      satisByCari.set(i.cari_id, (satisByCari.get(i.cari_id) || 0) + (i.gross_total || 0));
+    });
+    const qtyByCari = new Map<string, number>();
+    const satisIds = new Set(invoices.filter(i => i.type === 'satis').map(i => i.id));
+    invoiceLines.filter(l => satisIds.has(l.invoice_id)).forEach(l => {
+      // satış adet toplamı (ürün ayrımı yapılmadan)
+      const inv = invoices.find(i => i.id === l.invoice_id);
+      if (inv) qtyByCari.set(inv.cari_id, (qtyByCari.get(inv.cari_id) || 0) + (l.qty || 0));
+    });
+    const tahsilatByCari = new Map<string, number>();
+    cashTx.filter(c => c.type === 'tahsilat').forEach(c => {
+      // cari_id alınmadı; ileride genişletilecek
+    });
+    const result: Record<string, { title: string; totalQty: number; totalSales: number; receivable: number }> = {};
+    satisByCari.forEach((totalSales, cariId) => {
+      const title = cariIdTo[cariId]?.title || cariId;
+      const totalQty = qtyByCari.get(cariId) || 0;
+      const paid = tahsilatByCari.get(cariId) || 0;
+      result[cariId] = { title, totalQty, totalSales, receivable: Math.max(0, totalSales - paid) };
+    });
+    return result;
+  }, [invoices, invoiceLines, cashTx, cariIdTo]);
+
   return (
     <div>
       <h2 style={{ marginTop: 0 }}>Raporlar</h2>
@@ -66,9 +145,72 @@ export default function Reports() {
 
       {tab === 'cari' && (
         <div className="grid-3">
+          <div className="card md-col-span-2">
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Tedarikçi Bazlı Alış ve Ödeme</div>
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Tedarikçi</th>
+                    <th>Toplam Alış</th>
+                    <th>Ödenen (Nakit)</th>
+                    <th>Borç</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(supplierTotals).map(([id, r]) => (
+                    <tr key={id}><td>{r.title}</td><td>{r.totalPurchase.toFixed(2)} TL</td><td>{r.paid.toFixed(2)} TL</td><td>{r.debt.toFixed(2)} TL</td></tr>
+                  ))}
+                  {!Object.keys(supplierTotals).length && (
+                    <tr><td colSpan={4}>{loading ? 'Yükleniyor...' : 'Kayıt yok'}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
           <div className="card">
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>Cari Bazlı Kar Raporları</div>
-            <div className="text-muted" style={{ fontSize: 12 }}>Alış maliyeti ve satış fiyatları üzerinden kârlılık. Not: Maliyet/stoğa giriş verileri eklendikten sonra hesaplanacak.</div>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Ürün Bazlı Alınan Adet (Tüm Tedarikçiler)</div>
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Ürün</th>
+                    <th>Toplam Adet</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(supplierItemQty).map(([itemId, qty]) => (
+                    <tr key={itemId}><td>{itemIdTo[itemId]?.code} - {itemIdTo[itemId]?.name}</td><td>{Number(qty).toFixed(3)}</td></tr>
+                  ))}
+                  {!Object.keys(supplierItemQty).length && (
+                    <tr><td colSpan={2}>{loading ? 'Yükleniyor...' : 'Kayıt yok'}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="card md-col-span-2">
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Müşteri Bazlı Satış ve Alacak</div>
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Müşteri</th>
+                    <th>Satılan Ürün Toplam Adet</th>
+                    <th>Toplam Satış</th>
+                    <th>Alacak</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(customerTotals).map(([id, r]) => (
+                    <tr key={id}><td>{r.title}</td><td>{Number(r.totalQty).toFixed(3)}</td><td>{r.totalSales.toFixed(2)} TL</td><td>{r.receivable.toFixed(2)} TL</td></tr>
+                  ))}
+                  {!Object.keys(customerTotals).length && (
+                    <tr><td colSpan={4}>{loading ? 'Yükleniyor...' : 'Kayıt yok'}</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
