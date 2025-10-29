@@ -8,7 +8,7 @@ export default function Reports() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const [invoices, setInvoices] = useState<Array<{ id: string; type: string; cari_id: string; gross_total: number }>>([]);
+  const [invoices, setInvoices] = useState<Array<{ id: string; type: string; cari_id: string; gross_total: number; status: string }>>([]);
   const [cashTx, setCashTx] = useState<Array<{ type: string; amount: number; cari_id: string | null }>>([]);
   const [posBlocks, setPosBlocks] = useState<Array<{ status: string; net_amount: number }>>([]);
   const [invoiceLines, setInvoiceLines] = useState<Array<{ invoice_id: string; item_id: string; qty: number }>>([]);
@@ -23,7 +23,7 @@ export default function Reports() {
       setMessage('');
       try {
         const [invRes, cashRes, posRes] = await Promise.all([
-          supabase.from('invoices').select('id,type,cari_id,gross_total'),
+          supabase.from('invoices').select('id,type,cari_id,gross_total,status'),
           supabase.from('cash_transactions').select('type,amount,cari_id'),
           supabase.from('pos_blocks').select('status,net_amount'),
         ]);
@@ -108,7 +108,7 @@ export default function Reports() {
     return byItem;
   }, [invoices, invoiceLines]);
 
-  // Müşteri bazlı toplam satış adet ve tutar; alacak = satış toplamı - tahsilat
+  // Müşteri bazlı toplam satış adet ve tutar; alacak = sadece draft satış faturaları toplamı
   const customerTotals = useMemo(() => {
     const satisByCari = new Map<string, number>();
     invoices.filter(i => i.type === 'satis').forEach(i => {
@@ -121,24 +121,19 @@ export default function Reports() {
       const inv = invoices.find(i => i.id === l.invoice_id);
       if (inv) qtyByCari.set(inv.cari_id, (qtyByCari.get(inv.cari_id) || 0) + (l.qty || 0));
     });
-    const tahsilatByCari = new Map<string, number>();
-    cashTx.filter(c => c.type === 'tahsilat' && c.cari_id).forEach(c => {
-      const key = c.cari_id as string;
-      tahsilatByCari.set(key, (tahsilatByCari.get(key) || 0) + (c.amount || 0));
-    });
-    bankTx.filter(b => b.type === 'giris' && b.cari_id).forEach(b => {
-      const key = b.cari_id as string;
-      tahsilatByCari.set(key, (tahsilatByCari.get(key) || 0) + (b.amount || 0));
+    const receivableByCari = new Map<string, number>();
+    invoices.filter(i => i.type === 'satis' && i.status === 'draft').forEach(i => {
+      receivableByCari.set(i.cari_id, (receivableByCari.get(i.cari_id) || 0) + (i.gross_total || 0));
     });
     const result: Record<string, { title: string; totalQty: number; totalSales: number; receivable: number }> = {};
     satisByCari.forEach((totalSales, cariId) => {
       const title = cariIdTo[cariId]?.title || cariId;
       const totalQty = qtyByCari.get(cariId) || 0;
-      const paid = tahsilatByCari.get(cariId) || 0;
-      result[cariId] = { title, totalQty, totalSales, receivable: Math.max(0, totalSales - paid) };
+      const recv = receivableByCari.get(cariId) || 0;
+      result[cariId] = { title, totalQty, totalSales, receivable: recv };
     });
     return result;
-  }, [invoices, invoiceLines, cashTx, bankTx, cariIdTo]);
+  }, [invoices, invoiceLines, cariIdTo]);
 
   return (
     <div>
