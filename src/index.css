@@ -72,17 +72,26 @@ code {
 .sidebar .nav a { display: block; }
 .sidebar .nav a + a { margin-top: 4px; }
 
+/* Layout safeguard */
+*, *::before, *::after { box-sizing: border-box; }
+
 /* Responsive helpers */
 .grid-3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
+.grid-3 > * { min-width: 0; }
 @media (max-width: 1024px) {
   .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
   .grid-3 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+}
+
+/* Span two columns on medium+ widths */
+@media (min-width: 641px) {
+  .md-col-span-2 { grid-column: span 2; }
 }
 
 .toolbar {

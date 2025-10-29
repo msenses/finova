@@ -160,7 +160,7 @@ export default function Customers() {
             <div style={{ fontSize: 12, marginBottom: 4 }}>Telefon</div>
             <input className="form-control" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </div>
-          <div style={{ gridColumn: 'span 2' }}>
+          <div className="md-col-span-2">
             <div style={{ fontSize: 12, marginBottom: 4 }}>Adres</div>
             <input className="form-control" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
