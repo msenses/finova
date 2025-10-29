@@ -15,6 +15,7 @@ export function Sidebar() {
         <NavLink to="/app/invoices" className={({ isActive }) => (isActive ? 'active' : '')}>Faturalar</NavLink>
         <NavLink to="/app/cash-bank" className={({ isActive }) => (isActive ? 'active' : '')}>Kasa / Banka</NavLink>
         <NavLink to="/app/collections" className={({ isActive }) => (isActive ? 'active' : '')}>Tahsilat</NavLink>
+        <NavLink to="/app/settings" className={({ isActive }) => (isActive ? 'active' : '')}>Ayarlar</NavLink>
       </nav>
     </aside>
   );
