@@ -11,6 +11,7 @@ import Invoices from './pages/Invoices';
 import CashBank from './pages/CashBank';
 import Collections from './pages/Collections';
 import Settings from './pages/Settings';
+import Reports from './pages/Reports';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
         <Route path="invoices" element={<Invoices />} />
         <Route path="cash-bank" element={<CashBank />} />
         <Route path="collections" element={<Collections />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
