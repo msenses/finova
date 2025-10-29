@@ -188,7 +188,7 @@ export default function Reports() {
                 </thead>
                 <tbody>
                   {Object.entries(supplierItemQty).map(([itemId, qty]) => (
-                    <tr key={itemId}><td>{itemIdTo[itemId]?.code} - {itemIdTo[itemId]?.name}</td><td>{Number(qty).toFixed(3)}</td></tr>
+                    <tr key={itemId}><td>{itemIdTo[itemId]?.code} - {itemIdTo[itemId]?.name}</td><td>{(Number(qty) % 1 === 0 ? Number(qty) : Number(qty).toFixed(3))}</td></tr>
                   ))}
                   {!Object.keys(supplierItemQty).length && (
                     <tr><td colSpan={2}>{loading ? 'Yükleniyor...' : 'Kayıt yok'}</td></tr>
