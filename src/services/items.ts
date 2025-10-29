@@ -48,4 +48,19 @@ export async function deleteItem(id: string) {
   return await supabase.from('items').delete().eq('id', id);
 }
 
+export async function generateNextItemCode() {
+  const prefix = 'STK';
+  const { data, error } = await supabase
+    .from('items')
+    .select('code')
+    .ilike('code', `${prefix}%`)
+    .order('code', { ascending: false })
+    .limit(1);
+  if (error) return { code: `${prefix}0001`, error };
+  const last = data?.[0]?.code ?? '';
+  const num = parseInt((last.match(/(\d+)$/)?.[1] ?? '0'), 10) + 1;
+  const next = `${prefix}${String(num).padStart(4, '0')}`;
+  return { code: next, error: null };
+}
+
 

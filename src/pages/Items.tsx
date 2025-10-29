@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { createItem, deleteItem, listItems, updateItem, type Item, type UnitType } from '../services/items';
+import { createItem, deleteItem, listItems, updateItem, type Item, type UnitType, generateNextItemCode } from '../services/items';
 
 type FormState = {
   id?: string;
@@ -117,7 +117,7 @@ export default function Items() {
         <div className="toolbar" style={{ marginBottom: 8 }}>
           <div className="text-muted" style={{ fontSize: 12 }}>{editingId ? 'Ürün düzenle' : 'Yeni ürün ekle'}</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="btn" onClick={() => { onReset(); setShowAdd(true); }}>Yeni Ürün Ekle</button>
+            <button type="button" className="btn" onClick={async () => { onReset(); const { code } = await generateNextItemCode(); setForm((p) => ({ ...p, code })); setShowAdd(true); }}>Yeni Ürün Ekle</button>
             {(showAdd || editingId) && (
               <button type="button" className="btn btn-secondary" onClick={() => { onReset(); setShowAdd(false); }}>Kapat</button>
             )}
@@ -127,7 +127,7 @@ export default function Items() {
           <form onSubmit={onSubmit} className="grid-3" style={{ paddingTop: 8 }}>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Kod</div>
-            <input className="form-control" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
+            <input className="form-control" value={form.code} readOnly placeholder="Yeni ürün açılınca otomatik oluşur" required />
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Ad</div>
