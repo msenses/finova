@@ -13,21 +13,30 @@ export function Layout() {
       const { data: userRes } = await supabase.auth.getUser();
       const user = userRes.user;
       if (user?.id) {
-        const [{ data: orgData }, { data: profData }] = await Promise.all([
+        const [{ data: member }, { data: profData }] = await Promise.all([
           supabase
             .from('organization_members')
-            .select('organizations(name)')
+            .select('org_id')
             .eq('user_id', user.id)
-            .limit(1),
+            .limit(1)
+            .single(),
           supabase
             .from('user_profiles')
             .select('display_name')
             .eq('user_id', user.id)
             .single(),
         ]);
+        let name = '';
+        if (member?.org_id) {
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('name')
+            .eq('id', member.org_id)
+            .single();
+          name = (org as any)?.name ?? '';
+        }
         if (!cancelled) {
-          const n = (orgData as any)?.[0]?.organizations?.name ?? '';
-          if (n) setOrgName(String(n));
+          if (name) setOrgName(String(name));
           const dn = (profData as any)?.display_name ?? user.email ?? '';
           if (dn) setDisplayName(String(dn));
         }
