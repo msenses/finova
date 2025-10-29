@@ -55,11 +55,12 @@ export function Layout() {
     <div className="app-shell" style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
       <main className="container" style={{ flex: 1 }}>
-        <div className="card" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontWeight: 700 }}>
+        <div className="card" style={{ marginBottom: 12, display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center' }}>
+          <div />
+          <div style={{ fontWeight: 700, textAlign: 'center' }}>
             {orgName ? orgName.toUpperCase() : ''}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
             <span style={{ opacity: 0.9 }}>{displayName}</span>
             <button className="btn" onClick={onSignOut}>Çıkış</button>
           </div>
