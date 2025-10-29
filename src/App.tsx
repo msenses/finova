@@ -1,29 +1,24 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
-import { HealthCheck } from './components/HealthCheck';
-import { AuthPanel } from './components/AuthPanel';
+import { Routes, Route } from 'react-router-dom';
+import { Layout } from './components/Layout';
+import Customers from './pages/Customers';
+import Items from './pages/Items';
+import Invoices from './pages/Invoices';
+import CashBank from './pages/CashBank';
+import Collections from './pages/Collections';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-        <HealthCheck />
-        <AuthPanel />
-      </header>
-    </div>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Customers />} />
+        <Route path="items" element={<Items />} />
+        <Route path="invoices" element={<Invoices />} />
+        <Route path="cash-bank" element={<CashBank />} />
+        <Route path="collections" element={<Collections />} />
+      </Route>
+    </Routes>
   );
 }
 
