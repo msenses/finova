@@ -1,10 +1,66 @@
+:root {
+  --brand-900: #0a2e6f;
+  --brand-700: #0b3a85;
+  --brand-600: #0c4ba0;
+  --brand-500: #0c5bb5;
+  --brand-300: #77b7ff;
+  --surface: #ffffff;
+  --text-900: #0b1a33;
+  --text-700: #2a3550;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: var(--text-900);
+  background: linear-gradient(135deg, #f3f7ff 0%, #edf4ff 35%, #f7fbff 100%);
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+}
+
+.nav {
+  display: flex;
+  gap: 8px;
+}
+
+.nav a {
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--brand-700);
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.nav a.active {
+  background: rgba(11, 58, 133, 0.08);
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
 code {
