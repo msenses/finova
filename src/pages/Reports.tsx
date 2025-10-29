@@ -14,6 +14,7 @@ export default function Reports() {
   const [invoiceLines, setInvoiceLines] = useState<Array<{ invoice_id: string; item_id: string; qty: number }>>([]);
   const [items, setItems] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [caris, setCaris] = useState<Array<{ id: string; title: string; type: string }>>([]);
+  const [bankTx, setBankTx] = useState<Array<{ type: string; amount: number; cari_id: string | null }>>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +46,8 @@ export default function Reports() {
             if (!carisRes.error) setCaris((carisRes.data as any) ?? []);
           }
         }
+        const bankRes = await supabase.from('bank_transactions').select('type,amount,cari_id');
+        if (!cancelled && !bankRes.error) setBankTx((bankRes.data as any) ?? []);
       } catch (e: any) {
         if (!cancelled) setMessage(e?.message ?? 'Raporlar yüklenemedi');
       } finally {
@@ -81,6 +84,10 @@ export default function Reports() {
       const key = c.cari_id as string;
       odemeByCari.set(key, (odemeByCari.get(key) || 0) + (c.amount || 0));
     });
+    bankTx.filter(b => b.type === 'cikis' && b.cari_id).forEach(b => {
+      const key = b.cari_id as string;
+      odemeByCari.set(key, (odemeByCari.get(key) || 0) + (b.amount || 0));
+    });
     // cash_transactions seçimi cari_id içermiyor; güvenli tarafta sıfır kabul edelim
     alisByCari.forEach((total, cariId) => {
       const title = cariIdTo[cariId]?.title || cariId;
@@ -89,7 +96,7 @@ export default function Reports() {
       totals[cariId] = { title, totalPurchase: total, paid, debt };
     });
     return totals;
-  }, [invoices, cashTx, cariIdTo]);
+  }, [invoices, cashTx, bankTx, cariIdTo]);
 
   // Tedarikçilerden alınan ürünlerin ürün bazlı toplam adeti
   const supplierItemQty = useMemo(() => {
@@ -119,6 +126,10 @@ export default function Reports() {
       const key = c.cari_id as string;
       tahsilatByCari.set(key, (tahsilatByCari.get(key) || 0) + (c.amount || 0));
     });
+    bankTx.filter(b => b.type === 'giris' && b.cari_id).forEach(b => {
+      const key = b.cari_id as string;
+      tahsilatByCari.set(key, (tahsilatByCari.get(key) || 0) + (b.amount || 0));
+    });
     const result: Record<string, { title: string; totalQty: number; totalSales: number; receivable: number }> = {};
     satisByCari.forEach((totalSales, cariId) => {
       const title = cariIdTo[cariId]?.title || cariId;
@@ -127,7 +138,7 @@ export default function Reports() {
       result[cariId] = { title, totalQty, totalSales, receivable: Math.max(0, totalSales - paid) };
     });
     return result;
-  }, [invoices, invoiceLines, cashTx, cariIdTo]);
+  }, [invoices, invoiceLines, cashTx, bankTx, cariIdTo]);
 
   return (
     <div>
@@ -155,7 +166,7 @@ export default function Reports() {
                   <tr>
                     <th>Tedarikçi</th>
                     <th>Toplam Alış</th>
-                    <th>Ödenen (Nakit)</th>
+                    <th>Ödenen</th>
                     <th>Borç</th>
                   </tr>
                 </thead>
@@ -205,7 +216,7 @@ export default function Reports() {
                 </thead>
                 <tbody>
                   {Object.entries(customerTotals).map(([id, r]) => (
-                    <tr key={id}><td>{r.title}</td><td>{Number(r.totalQty).toFixed(3)}</td><td>{r.totalSales.toFixed(2)} TL</td><td>{r.receivable.toFixed(2)} TL</td></tr>
+                    <tr key={id}><td>{r.title}</td><td>{(r.totalQty % 1 === 0 ? r.totalQty : Number(r.totalQty).toFixed(3))}</td><td>{r.totalSales.toFixed(2)} TL</td><td>{r.receivable.toFixed(2)} TL</td></tr>
                   ))}
                   {!Object.keys(customerTotals).length && (
                     <tr><td colSpan={4}>{loading ? 'Yükleniyor...' : 'Kayıt yok'}</td></tr>
