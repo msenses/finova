@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { createBankAccount, deleteBankAccount, listBankAccounts, updateBankAccount, type BankAccount } from '../services/bank';
 import { createCashTransaction, deleteCashTransaction, listCashTransactions, updateCashTransaction, type CashTransaction, type CashTxnType } from '../services/cash';
+import { createPosBlock, deletePosBlock, listPosBlocks, updatePosBlock, type PosBlock, type PosStatus } from '../services/pos';
 
 type FormState = {
   id?: string;
@@ -24,13 +25,18 @@ export default function CashBank() {
   const [cashLoading, setCashLoading] = useState(false);
   const [cashEditingId, setCashEditingId] = useState<string | undefined>(undefined);
   const [cashForm, setCashForm] = useState<{ type: CashTxnType; amount: number; description: string; cari_id?: string }>({ type: 'tahsilat', amount: 0, description: '' });
+  // POS state
+  const [pos, setPos] = useState<PosBlock[]>([]);
+  const [posLoading, setPosLoading] = useState(false);
+  const [posEditingId, setPosEditingId] = useState<string | undefined>(undefined);
+  const [posForm, setPosForm] = useState<{ bank_account_id: string; reference: string; gross_amount: number; fee_amount: number; block_release_date: string; status: PosStatus }>({ bank_account_id: '', reference: '', gross_amount: 0, fee_amount: 0, block_release_date: '', status: 'blocked' });
 
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       if (!cancelled) setAuthed(Boolean(data.session));
-      if (data.session) { void load(); void loadCash(); }
+      if (data.session) { void load(); void loadCash(); void loadPos(); }
     };
     void init();
     return () => { cancelled = true; };
@@ -62,6 +68,19 @@ export default function CashBank() {
       // ignore
     } finally {
       setCashLoading(false);
+    }
+  }
+
+  async function loadPos() {
+    setPosLoading(true);
+    try {
+      const { data, error } = await listPosBlocks();
+      if (error) throw error;
+      setPos(data ?? []);
+    } catch (e) {
+      // ignore
+    } finally {
+      setPosLoading(false);
     }
   }
 
@@ -155,6 +174,58 @@ export default function CashBank() {
   function onCashReset() {
     setCashEditingId(undefined);
     setCashForm({ type: 'tahsilat', amount: 0, description: '' });
+  }
+
+  // POS handlers
+  async function onPosSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setPosLoading(true);
+    try {
+      if (posEditingId) {
+        const { error } = await updatePosBlock(posEditingId, posForm);
+        if (error) throw error;
+      } else {
+        const { error } = await createPosBlock(posForm);
+        if (error) throw error;
+      }
+      await loadPos();
+      onPosReset();
+    } catch (e) {
+      // noop
+    } finally {
+      setPosLoading(false);
+    }
+  }
+
+  function onPosEdit(row: PosBlock) {
+    setPosEditingId(row.id);
+    setPosForm({
+      bank_account_id: row.bank_account_id,
+      reference: row.reference ?? '',
+      gross_amount: row.gross_amount,
+      fee_amount: row.fee_amount,
+      block_release_date: (row.block_release_date ?? ''),
+      status: row.status,
+    });
+  }
+
+  async function onPosDelete(id: string) {
+    if (!window.confirm('Bu POS blokesini silmek istediğinize emin misiniz?')) return;
+    setPosLoading(true);
+    try {
+      const { error } = await deletePosBlock(id);
+      if (error) throw error;
+      await loadPos();
+    } catch (e) {
+      // noop
+    } finally {
+      setPosLoading(false);
+    }
+  }
+
+  function onPosReset() {
+    setPosEditingId(undefined);
+    setPosForm({ bank_account_id: '', reference: '', gross_amount: 0, fee_amount: 0, block_release_date: '', status: 'blocked' });
   }
 
   return (
@@ -285,6 +356,97 @@ export default function CashBank() {
               {!cash.length && (
                 <tr>
                   <td colSpan={5}>{cashLoading ? 'Yükleniyor...' : 'Kayıt bulunamadı.'}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>POS Blokeleri</h3>
+        <form onSubmit={onPosSubmit} className="grid-3" style={{ marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Banka Hesabı</div>
+            <select className="form-control" value={posForm.bank_account_id} onChange={(e) => setPosForm({ ...posForm, bank_account_id: e.target.value })}>
+              <option value="">Seçiniz</option>
+              {items.map((b) => (
+                <option key={b.id} value={b.id}>{b.name} {b.iban ? `(${b.iban})` : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Referans</div>
+            <input className="form-control" value={posForm.reference} onChange={(e) => setPosForm({ ...posForm, reference: e.target.value })} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Brüt Tutar</div>
+            <input className="form-control" type="number" step="0.01" value={posForm.gross_amount} onChange={(e) => setPosForm({ ...posForm, gross_amount: Number(e.target.value) })} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Komisyon</div>
+            <input className="form-control" type="number" step="0.01" value={posForm.fee_amount} onChange={(e) => setPosForm({ ...posForm, fee_amount: Number(e.target.value) })} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Bloke Çözüm Tarihi</div>
+            <input className="form-control" type="date" value={posForm.block_release_date} onChange={(e) => setPosForm({ ...posForm, block_release_date: e.target.value })} />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Durum</div>
+            <select className="form-control" value={posForm.status} onChange={(e) => setPosForm({ ...posForm, status: e.target.value as PosStatus })}>
+              <option value="blocked">Blokede</option>
+              <option value="released">Çözülmüş</option>
+              <option value="transferred">Aktarıldı</option>
+            </select>
+          </div>
+          <div className="md-col-span-2">
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Net</div>
+            <div><b>{(Number(posForm.gross_amount || 0) - Number(posForm.fee_amount || 0)).toFixed(2)}</b></div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
+            <button className="btn" type="submit" disabled={posLoading}>{posEditingId ? 'Güncelle' : 'Ekle'}</button>
+            {posEditingId && (
+              <button className="btn btn-secondary" type="button" onClick={onPosReset}>Temizle</button>
+            )}
+          </div>
+        </form>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Banka Hesabı</th>
+                <th>Ref</th>
+                <th>Brüt</th>
+                <th>Komisyon</th>
+                <th>Net</th>
+                <th>Bloke Çözüm</th>
+                <th>Durum</th>
+                <th style={{ width: 160 }}>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pos.map((r) => (
+                <tr key={r.id}>
+                  <td>{new Date(r.created_at ?? '').toLocaleString()}</td>
+                  <td>{items.find((b) => b.id === r.bank_account_id)?.name}</td>
+                  <td>{r.reference}</td>
+                  <td>{r.gross_amount}</td>
+                  <td>{r.fee_amount}</td>
+                  <td>{r.net_amount}</td>
+                  <td>{r.block_release_date}</td>
+                  <td>{r.status}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn btn-secondary" onClick={() => onPosEdit(r)}>Düzenle</button>
+                      <button className="btn btn-danger" onClick={() => onPosDelete(r.id)}>Sil</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!pos.length && (
+                <tr>
+                  <td colSpan={9}>{posLoading ? 'Yükleniyor...' : 'Kayıt bulunamadı.'}</td>
                 </tr>
               )}
             </tbody>
