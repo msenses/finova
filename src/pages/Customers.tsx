@@ -149,7 +149,7 @@ export default function Customers() {
           <form onSubmit={onSubmit} className="grid-3" style={{ paddingTop: 8 }}>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Kod</div>
-            <input className="form-control" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
+            <input className="form-control" value={form.code} readOnly placeholder="Tür seçince otomatik oluşur" required />
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Unvan</div>
