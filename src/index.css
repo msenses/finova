@@ -126,3 +126,7 @@ code {
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { padding: 10px; border-bottom: 1px solid rgba(0,0,0,0.08); text-align: left; }
 .table th { font-weight: 600; color: var(--text-700); }
+
+/* Collapsible helper */
+.collapse { overflow: hidden; max-height: 0; transition: max-height 240ms ease; }
+.collapse.open { max-height: 1000px; }
