@@ -13,7 +13,10 @@ export default function AuthPage() {
     setMessage('');
     try {
       const { error } = await signInWithUsernameOrEmail(id, password);
-      if (error) throw error;
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
       window.location.href = '/app';
     } catch (e: any) {
       setMessage(e?.message ?? 'Giriş başarısız');
