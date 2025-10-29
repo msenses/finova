@@ -9,7 +9,7 @@ export default function Reports() {
   const [message, setMessage] = useState('');
 
   const [invoices, setInvoices] = useState<Array<{ id: string; type: string; cari_id: string; gross_total: number }>>([]);
-  const [cashTx, setCashTx] = useState<Array<{ type: string; amount: number }>>([]);
+  const [cashTx, setCashTx] = useState<Array<{ type: string; amount: number; cari_id: string | null }>>([]);
   const [posBlocks, setPosBlocks] = useState<Array<{ status: string; net_amount: number }>>([]);
   const [invoiceLines, setInvoiceLines] = useState<Array<{ invoice_id: string; item_id: string; qty: number }>>([]);
   const [items, setItems] = useState<Array<{ id: string; code: string; name: string }>>([]);
@@ -23,7 +23,7 @@ export default function Reports() {
       try {
         const [invRes, cashRes, posRes] = await Promise.all([
           supabase.from('invoices').select('id,type,cari_id,gross_total'),
-          supabase.from('cash_transactions').select('type,amount'),
+          supabase.from('cash_transactions').select('type,amount,cari_id'),
           supabase.from('pos_blocks').select('status,net_amount'),
         ]);
         if (!cancelled) {
@@ -77,8 +77,9 @@ export default function Reports() {
       alisByCari.set(i.cari_id, (alisByCari.get(i.cari_id) || 0) + (i.gross_total || 0));
     });
     const odemeByCari = new Map<string, number>();
-    cashTx.filter(c => c.type === 'odeme').forEach(c => {
-      // Not: cash_transactions'da cari_id var; select'e eklenmemişti. Bu nedenle grup hesapları ileride geliştirilebilir.
+    cashTx.filter(c => c.type === 'odeme' && c.cari_id).forEach(c => {
+      const key = c.cari_id as string;
+      odemeByCari.set(key, (odemeByCari.get(key) || 0) + (c.amount || 0));
     });
     // cash_transactions seçimi cari_id içermiyor; güvenli tarafta sıfır kabul edelim
     alisByCari.forEach((total, cariId) => {
@@ -114,8 +115,9 @@ export default function Reports() {
       if (inv) qtyByCari.set(inv.cari_id, (qtyByCari.get(inv.cari_id) || 0) + (l.qty || 0));
     });
     const tahsilatByCari = new Map<string, number>();
-    cashTx.filter(c => c.type === 'tahsilat').forEach(c => {
-      // cari_id alınmadı; ileride genişletilecek
+    cashTx.filter(c => c.type === 'tahsilat' && c.cari_id).forEach(c => {
+      const key = c.cari_id as string;
+      tahsilatByCari.set(key, (tahsilatByCari.get(key) || 0) + (c.amount || 0));
     });
     const result: Record<string, { title: string; totalQty: number; totalSales: number; receivable: number }> = {};
     satisByCari.forEach((totalSales, cariId) => {
