@@ -2,7 +2,7 @@ import React from 'react';
 import './App.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { RequireAuth } from './components/RequireAuth';
+// import { RequireAuth } from './components/RequireAuth';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
@@ -14,15 +14,10 @@ import Collections from './pages/Collections';
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<AuthPage />} />
-      <Route
-        path="/app"
-        element={
-          <RequireAuth>
-            <Layout />
-          </RequireAuth>
-        }
-      >
+      <Route path="/" element={<Navigate to="/app" replace />} />
+      {/* Login sayfası istenirse tekrar etkinleştirilecek */}
+      <Route path="/login" element={<AuthPage />} />
+      <Route path="/app" element={<Layout />}> 
         <Route index element={<Dashboard />} />
         <Route path="customers" element={<Customers />} />
         <Route path="items" element={<Items />} />
@@ -30,7 +25,7 @@ function App() {
         <Route path="cash-bank" element={<CashBank />} />
         <Route path="collections" element={<Collections />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/app" replace />} />
     </Routes>
   );
 }
