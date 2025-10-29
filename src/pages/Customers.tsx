@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createCariAccount, deleteCariAccount, listCariAccounts, updateCariAccount, type CariAccount } from '../services/cari';
+import { createCariAccount, deleteCariAccount, listCariAccounts, updateCariAccount, type CariAccount, generateNextCariCode } from '../services/cari';
 import { supabase } from '../lib/supabaseClient';
 
 type FormState = {
   id?: string;
   code: string;
   title: string;
-  type: 'musteri' | 'tedarikci' | 'diger';
+  type: '' | 'musteri' | 'tedarikci' | 'diger';
   tax_number?: string;
   tax_office?: string;
   email?: string;
@@ -26,7 +26,7 @@ export default function Customers() {
   const [form, setForm] = useState<FormState>({
     code: '',
     title: '',
-    type: 'musteri',
+    type: '',
     tax_number: '',
     tax_office: '',
     email: '',
@@ -45,7 +45,7 @@ export default function Customers() {
     return () => { cancelled = true; };
   }, []);
 
-  const isValid = useMemo(() => form.code.trim().length > 0 && form.title.trim().length > 0, [form.code, form.title]);
+  const isValid = useMemo(() => form.code.trim().length > 0 && form.title.trim().length > 0 && !!form.type, [form.code, form.title, form.type]);
 
   async function load() {
     setLoading(true);
@@ -68,10 +68,10 @@ export default function Customers() {
     setMessage('');
     try {
       if (editingId) {
-        const { error } = await updateCariAccount(editingId, form);
+        const { error } = await updateCariAccount(editingId, { ...form, type: (form.type || undefined) as any });
         if (error) throw error;
       } else {
-        const { error } = await createCariAccount(form);
+        const { error } = await createCariAccount({ ...form, type: (form.type || undefined) as any });
         if (error) throw error;
       }
       await load();
@@ -117,7 +117,7 @@ export default function Customers() {
 
   function onReset() {
     setEditingId(undefined);
-    setForm({ code: '', title: '', type: 'musteri', tax_number: '', tax_office: '', email: '', phone: '', address: '' });
+    setForm({ code: '', title: '', type: '', tax_number: '', tax_office: '', email: '', phone: '', address: '' });
   }
 
   return (
@@ -157,7 +157,21 @@ export default function Customers() {
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Tür</div>
-            <select className="form-control" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as FormState['type'] })}>
+            <select
+              className="form-control"
+              value={form.type}
+              onChange={async (e) => {
+                const val = e.target.value as FormState['type'];
+                // Tür değişince otomatik kod üret (yalnızca yeni kayıtta)
+                if (!editingId && val) {
+                  const { code } = await generateNextCariCode(val);
+                  setForm((prev) => ({ ...prev, type: val, code }));
+                } else {
+                  setForm((prev) => ({ ...prev, type: val }));
+                }
+              }}
+            >
+              <option value="">Tür seçin</option>
               <option value="musteri">Müşteri</option>
               <option value="tedarikci">Tedarikçi</option>
               <option value="diger">Diğer</option>

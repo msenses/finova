@@ -56,4 +56,19 @@ export async function deleteCariAccount(id: string) {
   return await supabase.from('cari_accounts').delete().eq('id', id);
 }
 
+export async function generateNextCariCode(byType: 'musteri' | 'tedarikci' | 'diger') {
+  const prefix = byType === 'musteri' ? 'MST' : byType === 'tedarikci' ? 'TDR' : 'DGR';
+  const { data, error } = await supabase
+    .from('cari_accounts')
+    .select('code')
+    .ilike('code', `${prefix}%`)
+    .order('code', { ascending: false })
+    .limit(1);
+  if (error) return { code: `${prefix}0001`, error };
+  const last = data?.[0]?.code ?? '';
+  const num = parseInt((last.match(/(\d+)$/)?.[1] ?? '0'), 10) + 1;
+  const next = `${prefix}${String(num).padStart(4, '0')}`;
+  return { code: next, error: null };
+}
+
 
