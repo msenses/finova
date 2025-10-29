@@ -6,18 +6,20 @@ export async function signInWithUsernameOrEmail(identifier: string, password: st
   const id = identifier.trim();
   let email = id;
 
-  // 1) Kullanıcı adı ya da e‑posta var mı kontrol et (user_profiles referansı üzerinden)
+  // Eğer e‑posta verildiyse önce direkt giriş deneriz; başarısızsa profilden varlığını kontrol ederiz
   if (id.includes('@')) {
-    const { data, error } = await supabase
+    const res = await supabase.auth.signInWithPassword({ email: id, password });
+    if (!res.error) return { data: res.data, error: null };
+    // Başarısızsa email user_profiles'ta var mı kontrol et → daha iyi hata
+    const { data: p, error: pe } = await supabase
       .from('user_profiles')
       .select('email')
       .eq('email', id)
       .single();
-    if (error || !data?.email) {
-      return { data: null, error: { code: 'user_not_found', message: 'E‑posta kayıtlı değil' } };
-    }
-    email = data.email as string;
+    if (pe || !p?.email) return { data: null, error: { code: 'user_not_found', message: 'E‑posta kayıtlı değil' } };
+    return { data: null, error: { code: 'invalid_password', message: 'Şifre uyuşmuyor' } };
   } else {
+    // Kullanıcı adı → profilden email bul, sonra giriş dene
     const { data, error } = await supabase
       .from('user_profiles')
       .select('email')
@@ -27,14 +29,10 @@ export async function signInWithUsernameOrEmail(identifier: string, password: st
       return { data: null, error: { code: 'user_not_found', message: 'Kullanıcı adı kayıtlı değil' } };
     }
     email = data.email as string;
+    const res = await supabase.auth.signInWithPassword({ email, password });
+    if (res.error) return { data: null, error: { code: 'invalid_password', message: 'Şifre uyuşmuyor' } };
+    return { data: res.data, error: null };
   }
-
-  // 2) Parola ile giriş dene
-  const res = await supabase.auth.signInWithPassword({ email, password });
-  if (res.error) {
-    return { data: null, error: { code: 'invalid_password', message: 'Şifre uyuşmuyor' } };
-  }
-  return { data: res.data, error: null };
 }
 
 
