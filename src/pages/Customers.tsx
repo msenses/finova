@@ -127,18 +127,18 @@ export default function Customers() {
       )}
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <form onSubmit={onSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+        <form onSubmit={onSubmit} className="grid-3">
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Kod</div>
-            <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)' }} />
+            <input className="form-control" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Unvan</div>
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)' }} />
+            <input className="form-control" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Tür</div>
-            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as FormState['type'] })} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)' }}>
+            <select className="form-control" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as FormState['type'] })}>
               <option value="musteri">Müşteri</option>
               <option value="tedarikci">Tedarikçi</option>
               <option value="diger">Diğer</option>
@@ -146,30 +146,30 @@ export default function Customers() {
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Vergi No</div>
-            <input value={form.tax_number} onChange={(e) => setForm({ ...form, tax_number: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)' }} />
+            <input className="form-control" value={form.tax_number} onChange={(e) => setForm({ ...form, tax_number: e.target.value })} />
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Vergi Dairesi</div>
-            <input value={form.tax_office} onChange={(e) => setForm({ ...form, tax_office: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)' }} />
+            <input className="form-control" value={form.tax_office} onChange={(e) => setForm({ ...form, tax_office: e.target.value })} />
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>E-posta</div>
-            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)' }} />
+            <input className="form-control" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </div>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Telefon</div>
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)' }} />
+            <input className="form-control" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </div>
           <div style={{ gridColumn: 'span 2' }}>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Adres</div>
-            <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)' }} />
+            <input className="form-control" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
           <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
-            <button type="submit" disabled={loading || !isValid} style={{ padding: '10px 12px', borderRadius: 8 }}>
+            <button className="btn" type="submit" disabled={loading || !isValid}>
               {editingId ? 'Güncelle' : 'Ekle'}
             </button>
             {editingId && (
-              <button type="button" onClick={onReset} style={{ padding: '10px 12px', borderRadius: 8 }}>Temizle</button>
+              <button className="btn btn-secondary" type="button" onClick={onReset}>Temizle</button>
             )}
           </div>
         </form>
@@ -177,21 +177,21 @@ export default function Customers() {
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-          <input placeholder="Ara: kod veya unvan" value={search} onChange={(e) => setSearch(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)', minWidth: 260 }} />
-          <button onClick={() => load()} disabled={loading} style={{ padding: '8px 12px', borderRadius: 8 }}>Yenile</button>
+        <div className="toolbar" style={{ marginBottom: 12 }}>
+          <input className="form-control" placeholder="Ara: kod veya unvan" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 260 }} />
+          <button className="btn btn-secondary" onClick={() => load()} disabled={loading}>Yenile</button>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="table-responsive">
+          <table className="table">
             <thead>
-              <tr style={{ textAlign: 'left' }}>
+              <tr>
                 <th>Kod</th>
                 <th>Unvan</th>
                 <th>Tür</th>
                 <th>Vergi No</th>
                 <th>E-posta</th>
                 <th>Telefon</th>
-                <th style={{ width: 140 }}>İşlemler</th>
+                <th style={{ width: 160 }}>İşlemler</th>
               </tr>
             </thead>
             <tbody>
@@ -204,9 +204,9 @@ export default function Customers() {
                   <td>{r.email}</td>
                   <td>{r.phone}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => onEdit(r)} style={{ padding: '6px 10px', borderRadius: 8 }}>Düzenle</button>
-                      <button onClick={() => onDelete(r.id)} style={{ padding: '6px 10px', borderRadius: 8, background: '#fee2e2' }}>Sil</button>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn btn-secondary" onClick={() => onEdit(r)}>Düzenle</button>
+                      <button className="btn btn-danger" onClick={() => onDelete(r.id)}>Sil</button>
                     </div>
                   </td>
                 </tr>
