@@ -2,6 +2,7 @@ import React from 'react';
 import logo from './logo.svg';
 import './App.css';
 import { HealthCheck } from './components/HealthCheck';
+import { AuthPanel } from './components/AuthPanel';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           Learn React
         </a>
         <HealthCheck />
+        <AuthPanel />
       </header>
     </div>
   );
