@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { createBankAccount, deleteBankAccount, listBankAccounts, updateBankAccount, type BankAccount } from '../services/bank';
+import { createCashTransaction, deleteCashTransaction, listCashTransactions, updateCashTransaction, type CashTransaction, type CashTxnType } from '../services/cash';
 
 type FormState = {
   id?: string;
@@ -18,13 +19,18 @@ export default function CashBank() {
   const [authed, setAuthed] = useState<boolean>(false);
 
   const [form, setForm] = useState<FormState>({ name: '', bank_name: '', iban: '' });
+  // Kasa state
+  const [cash, setCash] = useState<CashTransaction[]>([]);
+  const [cashLoading, setCashLoading] = useState(false);
+  const [cashEditingId, setCashEditingId] = useState<string | undefined>(undefined);
+  const [cashForm, setCashForm] = useState<{ type: CashTxnType; amount: number; description: string; cari_id?: string }>({ type: 'tahsilat', amount: 0, description: '' });
 
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       if (!cancelled) setAuthed(Boolean(data.session));
-      if (data.session) void load();
+      if (data.session) { void load(); void loadCash(); }
     };
     void init();
     return () => { cancelled = true; };
@@ -43,6 +49,19 @@ export default function CashBank() {
       setMessage(e?.message ?? 'Kayıtlar yüklenemedi');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadCash() {
+    setCashLoading(true);
+    try {
+      const { data, error } = await listCashTransactions();
+      if (error) throw error;
+      setCash(data ?? []);
+    } catch (e) {
+      // ignore
+    } finally {
+      setCashLoading(false);
     }
   }
 
@@ -91,6 +110,51 @@ export default function CashBank() {
   function onReset() {
     setEditingId(undefined);
     setForm({ name: '', bank_name: '', iban: '' });
+  }
+
+  // Kasa handlers
+  async function onCashSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setCashLoading(true);
+    try {
+      if (cashEditingId) {
+        const { error } = await updateCashTransaction(cashEditingId, cashForm);
+        if (error) throw error;
+      } else {
+        const { error } = await createCashTransaction(cashForm);
+        if (error) throw error;
+      }
+      await loadCash();
+      onCashReset();
+    } catch (e) {
+      // noop
+    } finally {
+      setCashLoading(false);
+    }
+  }
+
+  function onCashEdit(row: CashTransaction) {
+    setCashEditingId(row.id);
+    setCashForm({ type: row.type, amount: row.amount, description: row.description ?? '', cari_id: row.cari_id ?? undefined });
+  }
+
+  async function onCashDelete(id: string) {
+    if (!window.confirm('Bu kasa hareketini silmek istediğinize emin misiniz?')) return;
+    setCashLoading(true);
+    try {
+      const { error } = await deleteCashTransaction(id);
+      if (error) throw error;
+      await loadCash();
+    } catch (e) {
+      // noop
+    } finally {
+      setCashLoading(false);
+    }
+  }
+
+  function onCashReset() {
+    setCashEditingId(undefined);
+    setCashForm({ type: 'tahsilat', amount: 0, description: '' });
   }
 
   return (
@@ -158,6 +222,69 @@ export default function CashBank() {
               {!items.length && (
                 <tr>
                   <td colSpan={4}>{loading ? 'Yükleniyor...' : 'Kayıt bulunamadı.'}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3 style={{ marginTop: 0 }}>Kasa Hareketleri</h3>
+        <form onSubmit={onCashSubmit} className="grid-3" style={{ marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Tür</div>
+            <select className="form-control" value={cashForm.type} onChange={(e) => setCashForm({ ...cashForm, type: e.target.value as CashTxnType })}>
+              <option value="tahsilat">Tahsilat</option>
+              <option value="odeme">Ödeme</option>
+              <option value="avans">Avans</option>
+              <option value="virman">Virman</option>
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Tutar</div>
+            <input className="form-control" type="number" step="0.01" value={cashForm.amount} onChange={(e) => setCashForm({ ...cashForm, amount: Number(e.target.value) })} />
+          </div>
+          <div className="md-col-span-2">
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Açıklama</div>
+            <input className="form-control" value={cashForm.description} onChange={(e) => setCashForm({ ...cashForm, description: e.target.value })} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
+            <button className="btn" type="submit" disabled={cashLoading}>{cashEditingId ? 'Güncelle' : 'Ekle'}</button>
+            {cashEditingId && (
+              <button className="btn btn-secondary" type="button" onClick={onCashReset}>Temizle</button>
+            )}
+          </div>
+        </form>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Tür</th>
+                <th>Tutar</th>
+                <th>Açıklama</th>
+                <th style={{ width: 160 }}>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cash.map((r) => (
+                <tr key={r.id}>
+                  <td>{new Date(r.created_at ?? '').toLocaleString()}</td>
+                  <td>{r.type}</td>
+                  <td>{r.amount}</td>
+                  <td>{r.description}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn btn-secondary" onClick={() => onCashEdit(r)}>Düzenle</button>
+                      <button className="btn btn-danger" onClick={() => onCashDelete(r.id)}>Sil</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!cash.length && (
+                <tr>
+                  <td colSpan={5}>{cashLoading ? 'Yükleniyor...' : 'Kayıt bulunamadı.'}</td>
                 </tr>
               )}
             </tbody>
