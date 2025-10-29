@@ -13,31 +13,39 @@ export function Layout() {
       const { data: userRes } = await supabase.auth.getUser();
       const user = userRes.user;
       if (user?.id) {
-        const [{ data: member }, { data: profData }] = await Promise.all([
-          supabase
+        // 1) user_profiles -> user_id & display_name
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('user_id, display_name')
+          .eq('user_id', user.id)
+          .single();
+
+        // 2) organization_members -> org_id (user_id ile)
+        let orgId: string | null = null;
+        if (profile?.user_id) {
+          const { data: memberRow } = await supabase
             .from('organization_members')
             .select('org_id')
-            .eq('user_id', user.id)
+            .eq('user_id', profile.user_id)
             .limit(1)
-            .single(),
-          supabase
-            .from('user_profiles')
-            .select('display_name')
-            .eq('user_id', user.id)
-            .single(),
-        ]);
+            .single();
+          orgId = (memberRow as any)?.org_id ?? null;
+        }
+
+        // 3) organizations -> name (org_id ile)
         let name = '';
-        if (member?.org_id) {
+        if (orgId) {
           const { data: org } = await supabase
             .from('organizations')
             .select('name')
-            .eq('id', member.org_id)
+            .eq('id', orgId)
             .single();
           name = (org as any)?.name ?? '';
         }
+
         if (!cancelled) {
           if (name) setOrgName(String(name));
-          const dn = (profData as any)?.display_name ?? user.email ?? '';
+          const dn = (profile as any)?.display_name ?? user.email ?? '';
           if (dn) setDisplayName(String(dn));
         }
       }
