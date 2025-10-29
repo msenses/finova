@@ -26,6 +26,8 @@ export default function Invoices() {
   const net = useMemo(() => Number((qty * unitPrice).toFixed(2)), [qty, unitPrice]);
   const vat = useMemo(() => Number(((net * vatRate) / 100).toFixed(2)), [net, vatRate]);
   const gross = useMemo(() => Number((net + vat).toFixed(2)), [net, vat]);
+  const selectedCari = useMemo(() => caris.find((c) => c.id === cariId), [caris, cariId]);
+  const derivedType = useMemo(() => (selectedCari?.type === 'tedarikci' ? 'alis' : 'satis') as 'alis' | 'satis', [selectedCari]);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +75,7 @@ export default function Invoices() {
     try {
       const today = new Date().toISOString().slice(0, 10);
       const inv = {
-        type: 'satis' as const,
+        type: derivedType,
         cari_id: cariId,
         invoice_date: today,
         due_date: today,
@@ -93,7 +95,8 @@ export default function Invoices() {
       if (error || !data) throw error ?? new Error('Fatura kaydı başarısız');
 
       if (payMethod === 'NAKIT') {
-        await createCashTransaction({ type: 'tahsilat', cari_id: cariId, amount: gross, description: `Fatura tahsilatı ${data.id}` });
+        const ctType = derivedType === 'alis' ? 'odeme' : 'tahsilat';
+        await createCashTransaction({ type: ctType as any, cari_id: cariId, amount: gross, description: `${derivedType === 'alis' ? 'Fatura ödemesi' : 'Fatura tahsilatı'} ${data.id}` });
       }
 
       await loadInvoices();
@@ -171,6 +174,10 @@ export default function Invoices() {
               <div>KDV: <b>{vat.toFixed(2)}</b></div>
               <div>Toplam: <b>{gross.toFixed(2)}</b></div>
             </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Fatura Türü</div>
+            <input className="form-control" readOnly value={derivedType === 'alis' ? 'Alış' : 'Satış'} />
           </div>
           <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
             <button className="btn" type="submit" disabled={loading || !isValid}>Kaydet</button>
