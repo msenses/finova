@@ -21,6 +21,7 @@ export default function Invoices() {
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [vatRate, setVatRate] = useState<number>(20);
   const [payMethod, setPayMethod] = useState<PayMethod>('NAKIT');
+  const [showAdd, setShowAdd] = useState<boolean>(false);
 
   const net = useMemo(() => Number((qty * unitPrice).toFixed(2)), [qty, unitPrice]);
   const vat = useMemo(() => Number(((net * vatRate) / 100).toFixed(2)), [net, vatRate]);
@@ -96,7 +97,7 @@ export default function Invoices() {
       }
 
       await loadInvoices();
-      setCariId(''); setItemId(''); setQty(1); setUnitPrice(0); setVatRate(20); setPayMethod('NAKIT');
+      setCariId(''); setItemId(''); setQty(1); setUnitPrice(0); setVatRate(20); setPayMethod('NAKIT'); setShowAdd(false);
     } catch (e: any) {
       setMessage(e?.message ?? 'Fatura oluşturulamadı');
     } finally {
@@ -114,7 +115,17 @@ export default function Invoices() {
       )}
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <form onSubmit={onSubmit} className="grid-3">
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <div className="text-muted" style={{ fontSize: 12 }}>Yeni fatura</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn" onClick={() => setShowAdd(true)}>Yeni Fatura Oluştur</button>
+            {showAdd && (
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAdd(false)}>Kapat</button>
+            )}
+          </div>
+        </div>
+        <div className={`collapse ${showAdd ? 'open' : ''}`}>
+          <form onSubmit={onSubmit} className="grid-3" style={{ paddingTop: 8 }}>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Cari</div>
             <select className="form-control" value={cariId} onChange={(e) => setCariId(e.target.value)}>
@@ -164,7 +175,8 @@ export default function Invoices() {
           <div style={{ display: 'flex', alignItems: 'end', gap: 8 }}>
             <button className="btn" type="submit" disabled={loading || !isValid}>Kaydet</button>
           </div>
-        </form>
+          </form>
+        </div>
         {message && <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>{message}</div>}
       </div>
 

@@ -20,16 +20,19 @@ export default function CashBank() {
   const [authed, setAuthed] = useState<boolean>(false);
 
   const [form, setForm] = useState<FormState>({ name: '', bank_name: '', iban: '' });
+  const [showBankAdd, setShowBankAdd] = useState<boolean>(false);
   // Kasa state
   const [cash, setCash] = useState<CashTransaction[]>([]);
   const [cashLoading, setCashLoading] = useState(false);
   const [cashEditingId, setCashEditingId] = useState<string | undefined>(undefined);
   const [cashForm, setCashForm] = useState<{ type: CashTxnType; amount: number; description: string; cari_id?: string }>({ type: 'tahsilat', amount: 0, description: '' });
+  const [showCashAdd, setShowCashAdd] = useState<boolean>(false);
   // POS state
   const [pos, setPos] = useState<PosBlock[]>([]);
   const [posLoading, setPosLoading] = useState(false);
   const [posEditingId, setPosEditingId] = useState<string | undefined>(undefined);
   const [posForm, setPosForm] = useState<{ bank_account_id: string; reference: string; gross_amount: number; fee_amount: number; block_release_date: string; status: PosStatus }>({ bank_account_id: '', reference: '', gross_amount: 0, fee_amount: 0, block_release_date: '', status: 'blocked' });
+  const [showPosAdd, setShowPosAdd] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +111,7 @@ export default function CashBank() {
 
   function onEdit(row: BankAccount) {
     setEditingId(row.id);
+    setShowBankAdd(true);
     setForm({ id: row.id, name: row.name, bank_name: row.bank_name ?? '', iban: row.iban ?? '' });
   }
 
@@ -154,6 +158,7 @@ export default function CashBank() {
 
   function onCashEdit(row: CashTransaction) {
     setCashEditingId(row.id);
+    setShowCashAdd(true);
     setCashForm({ type: row.type, amount: row.amount, description: row.description ?? '', cari_id: row.cari_id ?? undefined });
   }
 
@@ -199,6 +204,7 @@ export default function CashBank() {
 
   function onPosEdit(row: PosBlock) {
     setPosEditingId(row.id);
+    setShowPosAdd(true);
     setPosForm({
       bank_account_id: row.bank_account_id,
       reference: row.reference ?? '',
@@ -238,7 +244,17 @@ export default function CashBank() {
       )}
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <form onSubmit={onSubmit} className="grid-3">
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <div className="text-muted" style={{ fontSize: 12 }}>{editingId ? 'Banka hesabı düzenle' : 'Yeni banka hesabı'}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn" onClick={() => { onReset(); setShowBankAdd(true); }}>Yeni Banka Hesabı</button>
+            {(showBankAdd || editingId) && (
+              <button type="button" className="btn btn-secondary" onClick={() => { onReset(); setShowBankAdd(false); }}>Kapat</button>
+            )}
+          </div>
+        </div>
+        <div className={`collapse ${showBankAdd || editingId ? 'open' : ''}`}>
+          <form onSubmit={onSubmit} className="grid-3" style={{ paddingTop: 8 }}>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Hesap Adı</div>
             <input className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -257,7 +273,8 @@ export default function CashBank() {
               <button className="btn btn-secondary" type="button" onClick={onReset}>Temizle</button>
             )}
           </div>
-        </form>
+          </form>
+        </div>
         {message && <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>{message}</div>}
       </div>
 
@@ -302,7 +319,17 @@ export default function CashBank() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>Kasa Hareketleri</h3>
-        <form onSubmit={onCashSubmit} className="grid-3" style={{ marginBottom: 12 }}>
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <div className="text-muted" style={{ fontSize: 12 }}>{cashEditingId ? 'Kasa hareketi düzenle' : 'Yeni kasa hareketi'}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn" onClick={() => { onCashReset(); setShowCashAdd(true); }}>Yeni Kasa Hareketi</button>
+            {(showCashAdd || cashEditingId) && (
+              <button type="button" className="btn btn-secondary" onClick={() => { onCashReset(); setShowCashAdd(false); }}>Kapat</button>
+            )}
+          </div>
+        </div>
+        <div className={`collapse ${showCashAdd || cashEditingId ? 'open' : ''}`}>
+          <form onSubmit={onCashSubmit} className="grid-3" style={{ marginBottom: 12, paddingTop: 8 }}>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Tür</div>
             <select className="form-control" value={cashForm.type} onChange={(e) => setCashForm({ ...cashForm, type: e.target.value as CashTxnType })}>
@@ -326,7 +353,8 @@ export default function CashBank() {
               <button className="btn btn-secondary" type="button" onClick={onCashReset}>Temizle</button>
             )}
           </div>
-        </form>
+          </form>
+        </div>
         <div className="table-responsive">
           <table className="table">
             <thead>
@@ -365,7 +393,17 @@ export default function CashBank() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ marginTop: 0 }}>POS Blokeleri</h3>
-        <form onSubmit={onPosSubmit} className="grid-3" style={{ marginBottom: 12 }}>
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <div className="text-muted" style={{ fontSize: 12 }}>{posEditingId ? 'POS blokesini düzenle' : 'Yeni POS blokesi'}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn" onClick={() => { onPosReset(); setShowPosAdd(true); }}>Yeni POS Blokesı</button>
+            {(showPosAdd || posEditingId) && (
+              <button type="button" className="btn btn-secondary" onClick={() => { onPosReset(); setShowPosAdd(false); }}>Kapat</button>
+            )}
+          </div>
+        </div>
+        <div className={`collapse ${showPosAdd || posEditingId ? 'open' : ''}`}>
+          <form onSubmit={onPosSubmit} className="grid-3" style={{ marginBottom: 12, paddingTop: 8 }}>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Banka Hesabı</div>
             <select className="form-control" value={posForm.bank_account_id} onChange={(e) => setPosForm({ ...posForm, bank_account_id: e.target.value })}>
@@ -409,7 +447,8 @@ export default function CashBank() {
               <button className="btn btn-secondary" type="button" onClick={onPosReset}>Temizle</button>
             )}
           </div>
-        </form>
+          </form>
+        </div>
         <div className="table-responsive">
           <table className="table">
             <thead>

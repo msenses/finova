@@ -16,6 +16,7 @@ export default function Items() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [showAdd, setShowAdd] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [authed, setAuthed] = useState<boolean>(false);
 
@@ -69,6 +70,7 @@ export default function Items() {
       }
       await load();
       onReset();
+      if (!editingId) { setShowAdd(false); }
     } catch (e: any) {
       setMessage(e?.message ?? 'Kaydetme hatası');
     } finally {
@@ -79,6 +81,7 @@ export default function Items() {
   function onEdit(row: Item) {
     setEditingId(row.id);
     setForm({ id: row.id, code: row.code, name: row.name, unit: row.unit, vat_rate: row.vat_rate, price: row.price });
+    setShowAdd(true);
   }
 
   async function onDelete(id: string) {
@@ -111,7 +114,17 @@ export default function Items() {
       )}
 
       <div className="card" style={{ marginBottom: 12 }}>
-        <form onSubmit={onSubmit} className="grid-3">
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <div className="text-muted" style={{ fontSize: 12 }}>{editingId ? 'Ürün düzenle' : 'Yeni ürün ekle'}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="btn" onClick={() => { onReset(); setShowAdd(true); }}>Yeni Ürün Ekle</button>
+            {(showAdd || editingId) && (
+              <button type="button" className="btn btn-secondary" onClick={() => { onReset(); setShowAdd(false); }}>Kapat</button>
+            )}
+          </div>
+        </div>
+        <div className={`collapse ${showAdd || editingId ? 'open' : ''}`}>
+          <form onSubmit={onSubmit} className="grid-3" style={{ paddingTop: 8 }}>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Kod</div>
             <input className="form-control" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
@@ -143,7 +156,8 @@ export default function Items() {
               <button className="btn btn-secondary" type="button" onClick={onReset}>Temizle</button>
             )}
           </div>
-        </form>
+          </form>
+        </div>
         {message && <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>{message}</div>}
       </div>
 
