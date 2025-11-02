@@ -26,10 +26,11 @@ type Props<T> = {
   defaultPageSize?: number;
   toolbar?: React.ReactNode;
   rowActions?: (row: T) => React.ReactNode;
+  refreshKey?: number | string;
 };
 
 export function DataGrid<T extends { id: string }>(props: Props<T>) {
-  const { tableKey, columns, fetchData, defaultPageSize = 20, toolbar, rowActions } = props;
+  const { tableKey, columns, fetchData, defaultPageSize = 20, toolbar, rowActions, refreshKey } = props;
 
   const [page, setPage] = React.useState<number>(1);
   const [pageSize, setPageSize] = React.useState<number>(defaultPageSize);
@@ -74,7 +75,7 @@ export function DataGrid<T extends { id: string }>(props: Props<T>) {
     }
   }, [page, pageSize, sortBy, sortDir, search, fetchData]);
 
-  React.useEffect(() => { void reload(); }, [reload]);
+  React.useEffect(() => { void reload(); }, [reload, refreshKey]);
 
   function onSort(colKey: string) {
     if (sortBy !== colKey) {

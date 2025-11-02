@@ -18,6 +18,7 @@ type FormState = {
 
 export default function Customers() {
   const [loading, setLoading] = useState(false);
+  const [gridRefresh, setGridRefresh] = useState(0);
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [showAdd, setShowAdd] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
@@ -57,7 +58,6 @@ export default function Customers() {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       if (!cancelled) setAuthed(Boolean(data.session));
-      if (data.session) void load();
     };
     void init();
     return () => { cancelled = true; };
@@ -90,7 +90,7 @@ export default function Customers() {
         const { error } = await createCariAccount({ ...form, type: (form.type || undefined) as any });
         if (error) throw error;
       }
-      // grid otomatik yenilenecek; formu kapatıyoruz
+      setGridRefresh((x) => x + 1);
       onReset();
       if (!editingId) { setShowAdd(false); }
     } catch (e: any) {
@@ -124,7 +124,7 @@ export default function Customers() {
     try {
       const { error } = await deleteCariAccount(id);
       if (error) throw error;
-      await load();
+      setGridRefresh((x) => x + 1);
     } catch (e: any) {
       setMessage(e?.message ?? 'Silme hatası');
     } finally {
@@ -255,6 +255,7 @@ export default function Customers() {
       <div className="card">
         <DataGrid<CariAccount>
           tableKey="customers"
+          refreshKey={gridRefresh}
           columns={[
             { key: 'code', title: 'Kod', width: 140 },
             { key: 'title', title: 'Unvan' },
