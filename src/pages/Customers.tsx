@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createCariAccount, deleteCariAccount, listCariAccounts, updateCariAccount, type CariAccount, generateNextCariCode } from '../services/cari';
+import { createCariAccount, deleteCariAccount, updateCariAccount, type CariAccount, generateNextCariCode, paginatedCariAccounts } from '../services/cari';
 import { supabase } from '../lib/supabaseClient';
+import { DataGrid, type DataGridFetchResult } from '../components/datagrid/DataGrid';
+import { toCSV } from '../utils/csv';
 
 type FormState = {
   id?: string;
@@ -15,8 +17,6 @@ type FormState = {
 };
 
 export default function Customers() {
-  const [items, setItems] = useState<CariAccount[]>([]);
-  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [showAdd, setShowAdd] = useState<boolean>(false);
@@ -35,6 +35,23 @@ export default function Customers() {
     address: ''
   });
 
+  // Kısayollar: / -> arama odağı, r -> yenile, n -> yeni kayıt formu
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/') {
+        const el = document.querySelector<HTMLInputElement>('input[placeholder^="Ara"]');
+        if (el) { e.preventDefault(); el.focus(); }
+      } else if (e.key.toLowerCase() === 'r' && !e.metaKey && !e.ctrlKey) {
+        const btn = document.querySelector<HTMLButtonElement>('button.btn.btn-secondary');
+        btn?.click();
+      } else if (e.key.toLowerCase() === 'n' && !e.metaKey && !e.ctrlKey) {
+        setShowAdd(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
@@ -48,18 +65,16 @@ export default function Customers() {
 
   const isValid = useMemo(() => form.code.trim().length > 0 && form.title.trim().length > 0 && !!form.type, [form.code, form.title, form.type]);
 
-  async function load() {
-    setLoading(true);
-    setMessage('');
-    try {
-      const { data, error } = await listCariAccounts(search);
-      if (error) throw error;
-      setItems(data ?? []);
-    } catch (e: any) {
-      setMessage(e?.message ?? 'Kayıtlar yüklenemedi');
-    } finally {
-      setLoading(false);
-    }
+  async function gridFetcher(args: { page: number; pageSize: number; sortBy?: string | null; sortDir?: 'asc' | 'desc' | null; search?: string; }): Promise<DataGridFetchResult<CariAccount>> {
+    const { rows, total, error } = await paginatedCariAccounts({
+      page: args.page,
+      pageSize: args.pageSize,
+      sortBy: (args.sortBy as any) ?? 'created_at',
+      sortDir: args.sortDir ?? 'desc',
+      search: args.search ?? '',
+    });
+    if (error) throw error;
+    return { rows, total };
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -75,7 +90,7 @@ export default function Customers() {
         const { error } = await createCariAccount({ ...form, type: (form.type || undefined) as any });
         if (error) throw error;
       }
-      await load();
+      // grid otomatik yenilenecek; formu kapatıyoruz
       onReset();
       if (!editingId) { setShowAdd(false); }
     } catch (e: any) {
@@ -238,50 +253,47 @@ export default function Customers() {
       </div>
 
       <div className="card">
-        <div className="toolbar" style={{ marginBottom: 12 }}>
-          <input className="form-control" placeholder="Ara: kod veya unvan" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 260 }} />
-          <button className="btn btn-secondary" onClick={() => load()} disabled={loading}>Yenile</button>
-        </div>
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Kod</th>
-                <th>Unvan</th>
-                <th>Tür</th>
-                <th>Vergi No</th>
-                <th>E-posta</th>
-                <th>Telefon</th>
-                <th style={{ width: 160 }}>İşlemler</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.code}</td>
-                  <td>{r.title}</td>
-                  <td>{r.type}</td>
-                  <td>{r.tax_number}</td>
-                  <td>{r.email}</td>
-                  <td>{r.phone}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn btn-secondary" onClick={() => onEdit(r)}>Düzenle</button>
-                      <button className="btn btn-danger" onClick={() => onDelete(r.id)}>Sil</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {!items.length && (
-                <tr>
-                  <td colSpan={7}>
-                    {loading ? 'Yükleniyor...' : 'Kayıt bulunamadı.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DataGrid<CariAccount>
+          tableKey="customers"
+          columns={[
+            { key: 'code', title: 'Kod', width: 140 },
+            { key: 'title', title: 'Unvan' },
+            { key: 'type', title: 'Tür', width: 120 },
+            { key: 'tax_number', title: 'Vergi No', width: 140 },
+            { key: 'email', title: 'E-posta', width: 200 },
+            { key: 'phone', title: 'Telefon', width: 140 },
+          ]}
+          fetchData={gridFetcher}
+          rowActions={(r) => <>
+            <button className="btn btn-secondary" onClick={() => onEdit(r)}>Düzenle</button>
+            <button className="btn btn-danger" onClick={() => onDelete(r.id)}>Sil</button>
+          </>}
+          toolbar={<>
+            <button
+              className="btn btn-secondary"
+              onClick={async () => {
+                const { rows } = await gridFetcher({ page: 1, pageSize: 1000, sortBy: 'created_at', sortDir: 'desc', search: '' });
+                const csv = toCSV(rows, [
+                  { key: 'code', title: 'Kod' },
+                  { key: 'title', title: 'Unvan' },
+                  { key: 'type', title: 'Tür' },
+                  { key: 'tax_number', title: 'Vergi No' },
+                  { key: 'email', title: 'E-posta' },
+                  { key: 'phone', title: 'Telefon' },
+                ]);
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `cari_${new Date().toISOString().slice(0,10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              CSV İndir
+            </button>
+          </>}
+        />
       </div>
     </div>
   );

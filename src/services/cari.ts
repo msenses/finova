@@ -24,6 +24,35 @@ export async function listCariAccounts(query?: string) {
   return await req;
 }
 
+export type CariListParams = {
+  page: number;
+  pageSize: number;
+  sortBy?: keyof CariAccount | 'created_at' | 'code' | 'title' | null;
+  sortDir?: 'asc' | 'desc' | null;
+  search?: string;
+};
+
+export async function paginatedCariAccounts(params: CariListParams) {
+  const { page, pageSize, sortBy, sortDir, search } = params;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  let req = supabase
+    .from('cari_accounts')
+    .select('*', { count: 'exact' })
+    .range(from, to);
+  if (search && search.trim()) {
+    const q = `%${search.trim()}%`;
+    req = req.or(`code.ilike.${q},title.ilike.${q}`);
+  }
+  if (sortBy && sortDir) {
+    req = req.order(String(sortBy), { ascending: sortDir === 'asc' });
+  } else {
+    req = req.order('created_at', { ascending: false });
+  }
+  const { data, count, error } = await req;
+  return { rows: (data as CariAccount[]) ?? [], total: count ?? 0, error };
+}
+
 export async function createCariAccount(payload: Partial<CariAccount>) {
   const insert = {
     code: payload.code,
