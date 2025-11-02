@@ -1,3 +1,29 @@
+# Node & tooling
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+build/
+dist/
+coverage/
+
+# Env & local
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Misc
+*.local
+*.log
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
