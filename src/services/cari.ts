@@ -13,6 +13,7 @@ export interface CariAccount {
   balance: number;
   created_at?: string;
   updated_at?: string;
+  org_id?: string | null;
 }
 
 export async function listCariAccounts(query?: string) {
@@ -24,36 +25,9 @@ export async function listCariAccounts(query?: string) {
   return await req;
 }
 
-export type CariListParams = {
-  page: number;
-  pageSize: number;
-  sortBy?: keyof CariAccount | 'created_at' | 'code' | 'title' | null;
-  sortDir?: 'asc' | 'desc' | null;
-  search?: string;
-};
+export type CreateCariPayload = Partial<CariAccount> & { org_id?: string };
 
-export async function paginatedCariAccounts(params: CariListParams) {
-  const { page, pageSize, sortBy, sortDir, search } = params;
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  let req = supabase
-    .from('cari_accounts')
-    .select('*', { count: 'exact' })
-    .range(from, to);
-  if (search && search.trim()) {
-    const q = `%${search.trim()}%`;
-    req = req.or(`code.ilike.${q},title.ilike.${q}`);
-  }
-  if (sortBy && sortDir) {
-    req = req.order(String(sortBy), { ascending: sortDir === 'asc' });
-  } else {
-    req = req.order('created_at', { ascending: false });
-  }
-  const { data, count, error } = await req;
-  return { rows: (data as CariAccount[]) ?? [], total: count ?? 0, error };
-}
-
-export async function createCariAccount(payload: Partial<CariAccount>) {
+export async function createCariAccount(payload: CreateCariPayload) {
   const insert = {
     code: payload.code,
     title: payload.title,
@@ -63,7 +37,8 @@ export async function createCariAccount(payload: Partial<CariAccount>) {
     email: payload.email ?? null,
     phone: payload.phone ?? null,
     address: payload.address ?? null,
-  };
+    org_id: payload.org_id ?? null,
+  } as any;
   return await supabase.from('cari_accounts').insert(insert).select('*').single();
 }
 
@@ -98,6 +73,35 @@ export async function generateNextCariCode(byType: 'musteri' | 'tedarikci' | 'di
   const num = parseInt((last.match(/(\d+)$/)?.[1] ?? '0'), 10) + 1;
   const next = `${prefix}${String(num).padStart(4, '0')}`;
   return { code: next, error: null };
+}
+
+export type CariListParams = {
+  page: number;
+  pageSize: number;
+  sortBy?: keyof CariAccount | 'created_at' | 'code' | 'title' | null;
+  sortDir?: 'asc' | 'desc' | null;
+  search?: string;
+};
+
+export async function paginatedCariAccounts(params: CariListParams) {
+  const { page, pageSize, sortBy, sortDir, search } = params;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  let req = supabase
+    .from('cari_accounts')
+    .select('*', { count: 'exact' })
+    .range(from, to);
+  if (search && search.trim()) {
+    const q = `%${search.trim()}%`;
+    req = req.or(`code.ilike.${q},title.ilike.${q}`);
+  }
+  if (sortBy && sortDir) {
+    req = req.order(String(sortBy), { ascending: sortDir === 'asc' });
+  } else {
+    req = req.order('created_at', { ascending: false });
+  }
+  const { data, count, error } = await req;
+  return { rows: (data as CariAccount[]) ?? [], total: count ?? 0, error };
 }
 
 

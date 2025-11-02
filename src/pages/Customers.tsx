@@ -3,6 +3,7 @@ import { createCariAccount, deleteCariAccount, updateCariAccount, type CariAccou
 import { supabase } from '../lib/supabaseClient';
 import { DataGrid, type DataGridFetchResult } from '../components/datagrid/DataGrid';
 import { toCSV } from '../utils/csv';
+import { useTenant } from '../context/TenantContext';
 
 type FormState = {
   id?: string;
@@ -19,6 +20,7 @@ type FormState = {
 export default function Customers() {
   const [loading, setLoading] = useState(false);
   const [gridRefresh, setGridRefresh] = useState(0);
+  const { activeOrgId } = useTenant();
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
   const [showAdd, setShowAdd] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
@@ -83,11 +85,12 @@ export default function Customers() {
     setLoading(true);
     setMessage('');
     try {
+      if (!activeOrgId) throw new Error('Aktif şirket bulunamadı');
       if (editingId) {
         const { error } = await updateCariAccount(editingId, { ...form, type: (form.type || undefined) as any });
         if (error) throw error;
       } else {
-        const { error } = await createCariAccount({ ...form, type: (form.type || undefined) as any });
+        const { error } = await createCariAccount({ ...form, type: (form.type || undefined) as any, org_id: activeOrgId });
         if (error) throw error;
       }
       setGridRefresh((x) => x + 1);
